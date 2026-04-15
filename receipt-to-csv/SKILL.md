@@ -5,12 +5,27 @@ description: Convert receipt folders into `CSV` + `DOCX` + copied `attachments/`
 
 # Receipt To CSV
 
-Use this skill to batch-process receipt files from a local folder into a structured output bundle with home-currency reimbursement conversion.
+Use this skill in one of two modes:
+
+- review mode: the user gives a folder path, Codex scans receipts, then the local app opens directly on the review/export workspace
+- CLI batch mode: the user gives a folder path and wants deterministic export without the review UI
+
+Default behavior:
+
+- If the user asks to "scan receipts", "review receipts", or otherwise wants to inspect/edit results in the UI, prefer review mode by default.
+- Use CLI batch mode only when the user explicitly asks for direct output files without the review UI.
 
 ## Workflow
 
 1. Confirm scope:
-- Use this skill strictly for CLI/batch path-based processing.
+- If the user wants UI review after scan, use review mode.
+- Treat review mode as the normal/default path for folder-based receipt scanning.
+- In review mode, the skill performs extraction itself from the folder path, writes a payload JSON, converts that payload into a preloaded session file, then launches:
+  `RECEIPT_TO_CSV_SESSION_FILE="/tmp/receipt_preloaded_session.json" bash receipt-to-csv/scripts/open_local_app.sh`
+- The local app must open `http://127.0.0.1:5173/app?mode=skill` and land directly in the workspace when the preloaded session contains rows.
+- In this flow, the browser app does not do receipt extraction itself.
+- In this flow, the skill does the scan first and the app acts only as the review/export surface.
+- Use CLI mode only when the user explicitly wants final files generated without the review UI.
 
 2. Ask for source folder if missing:
 - If the user did not provide a source path, ask exactly one question:
@@ -21,12 +36,31 @@ Use this skill to batch-process receipt files from a local folder into a structu
 - Extract receipt fields using Codex agent workflow (vision/PDF understanding).
 - Build a structured JSON payload with receipt currency + amount from extraction (schema in [REFERENCE.md](REFERENCE.md), examples in [EXAMPLES.md](EXAMPLES.md)).
 
-4. Run the bundled script with payload:
+4. Continue based on mode:
+For review mode, wrap the payload into a preloaded session file first:
+
 ```bash
-python3 scripts/receipt_to_csv.py "<folder-path>" --payload-file "/tmp/receipt_payload.json" --home-currency "SGD"
+python3 receipt-to-csv/scripts/payload_to_preloaded_session.py "<folder-path>" \
+  --payload-file "/tmp/receipt_payload.json" \
+  --output-file "/tmp/receipt_preloaded_session.json"
 ```
 
-5. Verify output bundle:
+Then launch the app with that session:
+
+```bash
+RECEIPT_TO_CSV_SESSION_FILE="/tmp/receipt_preloaded_session.json" \
+bash receipt-to-csv/scripts/open_local_app.sh
+```
+
+For CLI batch mode, run the bundled script:
+
+```bash
+python3 receipt-to-csv/scripts/receipt_to_csv.py "<folder-path>" \
+  --payload-file "/tmp/receipt_payload.json" \
+  --home-currency "SGD"
+```
+
+5. Verify output bundle for CLI mode:
 - Script must create one subfolder under the scanned path.
 - Subfolder must contain:
   - `report.csv`
@@ -37,6 +71,7 @@ python3 scripts/receipt_to_csv.py "<folder-path>" --payload-file "/tmp/receipt_p
 - Include output folder path.
 - Include number of processed files.
 - Mention any skipped/failed files.
+- In review mode, include the local app URL and mention any rows marked `NEEDS_REVIEW`.
 
 ## Output Contract
 
@@ -49,5 +84,9 @@ python3 scripts/receipt_to_csv.py "<folder-path>" --payload-file "/tmp/receipt_p
 ## Notes
 
 - Never delete or overwrite source receipts.
-- The script does formatting/export only; it does not call Gemini/OCR itself.
+- The CLI script does formatting/export only; it does not call Gemini/OCR itself.
+- Review mode uses the local app as a review/export surface for a skill-generated payload.
+- Review mode should preload session data before the app renders, so the user lands on the workspace rather than an intermediate loading flow.
+- The browser app can preload a session from `RECEIPT_TO_CSV_SESSION_FILE` and show previews for the original receipt files.
+- `receipt-to-csv/scripts/open_local_app.sh` expects access to a `ReceiptToCSV` project checkout containing `web-app/`. Run it from that project root or set `RECEIPT_TO_CSV_PROJECT_ROOT`.
 - DOCX attachment section embeds images directly and tries to render PDF pages as images for supporting proof.
