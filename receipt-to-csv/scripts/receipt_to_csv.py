@@ -57,7 +57,7 @@ CSV_HEADERS = [
     "Status",
 ]
 STATUS_VALUES = {"OK", "NEEDS_REVIEW", "FAILED"}
-FX_API_BASE = "https://api.frankfurter.app"
+FX_API_BASE = "https://api.frankfurter.dev/v1"
 
 
 @dataclass

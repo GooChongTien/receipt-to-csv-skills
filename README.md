@@ -11,12 +11,18 @@ Outputs:
 
 This skill package supports two working modes:
 
-- Review mode: Codex scans a receipt folder, builds a payload, converts it into a preloaded session, and opens the local `ReceiptToCSV` app directly on the review/export workspace.
-- CLI batch mode: Codex scans a receipt folder and generates the output bundle directly without opening the UI.
+- Review mode: the active host model scans a receipt folder, builds a payload, converts it into a preloaded session, and opens the local `ReceiptToCSV` app directly on the review/export workspace.
+- CLI batch mode: the active host model scans a receipt folder and generates the output bundle directly without opening the UI.
 
 Default behavior:
 - If the user asks to scan or review receipts, prefer review mode.
 - Use CLI batch mode only when the user explicitly asks to skip the UI and generate final files directly.
+
+Host-model expectation:
+- In Codex, this should use the active GPT/Codex session.
+- In Claude Code, this should use the active Claude session.
+- In Gemini CLI, this should use the active Gemini session.
+- The browser app is only the review/export surface in review mode; it is not the intended extraction engine.
 
 ## What This Solves
 
@@ -39,7 +45,7 @@ Default behavior:
 
 The intended review flow is:
 
-1. Codex scans a folder and writes `/tmp/receipt_payload.json`
+1. The active host model scans a folder and writes `/tmp/receipt_payload.json`
 2. Convert that payload into a preloaded session:
 
 ```bash
@@ -56,6 +62,12 @@ bash receipt-to-csv/scripts/open_local_app.sh
 ```
 
 When the session contains rows, the local app should land directly on the workspace for review/export.
+
+Review payload rules:
+- set `extraction_label` to the host label or model family such as `Codex`, `Claude Code`, or `Gemini CLI`
+- normalize reimbursement currency/amount to the configured home currency
+- keep `NEEDS_REVIEW` when extraction confidence is weak or FX conversion cannot be resolved cleanly
+- avoid OCR-fallback wording in remarks unless OCR was actually used
 
 ## Important Dependency
 
