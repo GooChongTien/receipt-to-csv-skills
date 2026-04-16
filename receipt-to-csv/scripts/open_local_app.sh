@@ -1,22 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="${RECEIPT_TO_CSV_PROJECT_ROOT:-}"
-
-if [[ -z "$PROJECT_ROOT" ]]; then
-    if [[ -d "$PWD/web-app" ]]; then
-        PROJECT_ROOT="$PWD"
-    else
-        echo "Could not locate the ReceiptToCSV project root." >&2
-        echo "Run this from the ReceiptToCSV project root or set RECEIPT_TO_CSV_PROJECT_ROOT." >&2
-        exit 1
-    fi
-fi
-
-PROJECT_ROOT="$(cd "$PROJECT_ROOT" && pwd)"
-WEB_APP_DIR="$PROJECT_ROOT/web-app"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+WEB_APP_DIR="$ROOT_DIR/web-app"
 PUBLIC_DIR="$WEB_APP_DIR/public"
+CHECK_PREREQS_SCRIPT="$ROOT_DIR/skills/receipt-to-csv/scripts/check_prereqs.sh"
 API_PORT="${RECEIPT_TO_CSV_API_PORT:-8787}"
 WEB_PORT="${RECEIPT_TO_CSV_WEB_PORT:-5173}"
 APP_URL="http://127.0.0.1:${WEB_PORT}/app?mode=skill"
@@ -24,11 +12,6 @@ BACKEND_LOG="${TMPDIR:-/tmp}/receipttocsv-skill-backend.log"
 FRONTEND_LOG="${TMPDIR:-/tmp}/receipttocsv-skill-frontend.log"
 SESSION_FILE="${RECEIPT_TO_CSV_SESSION_FILE:-}"
 PUBLIC_SESSION_FILE="$PUBLIC_DIR/preloaded-session.json"
-
-if [[ ! -d "$WEB_APP_DIR" ]]; then
-    echo "Expected web-app directory at $WEB_APP_DIR" >&2
-    exit 1
-fi
 
 is_listening() {
     lsof -nP -iTCP:"$1" -sTCP:LISTEN >/dev/null 2>&1
@@ -74,6 +57,8 @@ wait_for_url() {
     return 1
 }
 
+"$CHECK_PREREQS_SCRIPT" review
+
 if [[ ! -d "$WEB_APP_DIR/node_modules/openai" ]]; then
     npm --prefix "$WEB_APP_DIR" install --no-audit --no-fund >/dev/null
 fi
@@ -92,7 +77,7 @@ fi
 
 if ! is_listening "$API_PORT"; then
     if command -v osascript >/dev/null 2>&1; then
-        launch_in_terminal "cd \"$PROJECT_ROOT\" && env RECEIPT_TO_CSV_API_PORT=\"$API_PORT\" RECEIPT_TO_CSV_SESSION_FILE=\"$SESSION_FILE\" node \"$WEB_APP_DIR/scripts/local_skill_server.mjs\" | tee \"$BACKEND_LOG\""
+        launch_in_terminal "cd \"$ROOT_DIR\" && env RECEIPT_TO_CSV_API_PORT=\"$API_PORT\" RECEIPT_TO_CSV_SESSION_FILE=\"$SESSION_FILE\" node \"$WEB_APP_DIR/scripts/local_skill_server.mjs\" | tee \"$BACKEND_LOG\""
     else
         nohup env RECEIPT_TO_CSV_API_PORT="$API_PORT" RECEIPT_TO_CSV_SESSION_FILE="$SESSION_FILE" \
             node "$WEB_APP_DIR/scripts/local_skill_server.mjs" \
@@ -102,7 +87,7 @@ fi
 
 if ! is_listening "$WEB_PORT"; then
     if command -v osascript >/dev/null 2>&1; then
-        launch_in_terminal "cd \"$PROJECT_ROOT\" && env RECEIPT_TO_CSV_API_PORT=\"$API_PORT\" RECEIPT_TO_CSV_OPEN_BROWSER=0 npm --prefix \"$WEB_APP_DIR\" run dev -- --host 127.0.0.1 --port \"$WEB_PORT\" | tee \"$FRONTEND_LOG\""
+        launch_in_terminal "cd \"$ROOT_DIR\" && env RECEIPT_TO_CSV_API_PORT=\"$API_PORT\" RECEIPT_TO_CSV_OPEN_BROWSER=0 npm --prefix \"$WEB_APP_DIR\" run dev -- --host 127.0.0.1 --port \"$WEB_PORT\" | tee \"$FRONTEND_LOG\""
     else
         nohup env RECEIPT_TO_CSV_API_PORT="$API_PORT" RECEIPT_TO_CSV_OPEN_BROWSER=0 \
             npm --prefix "$WEB_APP_DIR" run dev -- --host 127.0.0.1 --port "$WEB_PORT" \

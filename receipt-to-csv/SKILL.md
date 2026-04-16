@@ -20,11 +20,13 @@ Default behavior:
 1. Confirm scope:
 - If the user wants UI review after scan, use review mode.
 - Treat review mode as the normal/default path for folder-based receipt scanning.
-- In review mode, the extraction engine is the active host model session itself. Do not route review-mode extraction through Gemini API, local OCR, Apple Vision OCR, or the local app backend.
-- The skill should describe the result as scanned by the host model, not a browser-side extractor.
-- If the host environment exposes the active model name, you may mention that exact model in the result.
+- Run `bash skills/receipt-to-csv/scripts/check_prereqs.sh review` before launching the local app in review mode.
+- Run `bash skills/receipt-to-csv/scripts/check_prereqs.sh cli` before running the formatter script in CLI batch mode.
+- In review mode, the extraction engine is the active Codex session model itself. Do not route review-mode extraction through Gemini API, local OCR, Apple Vision OCR, or the local app backend.
+- The skill should describe the result as scanned by Codex, not Gemini.
+- If the current Codex session has a known configured model, you may mention that exact model. In this environment, `/Users/goochongtien/.codex/config.toml` is configured with `model = "gpt-5.4"`.
 - In review mode, the skill performs extraction itself from the folder path, writes a payload JSON, converts that payload into a preloaded session file, then launches:
-  `RECEIPT_TO_CSV_SESSION_FILE="/tmp/receipt_preloaded_session.json" bash receipt-to-csv/scripts/open_local_app.sh`
+  `RECEIPT_TO_CSV_SESSION_FILE="/tmp/receipt_preloaded_session.json" bash skills/receipt-to-csv/scripts/open_local_app.sh`
 - The local app must open `http://127.0.0.1:5173/app?mode=skill` and land directly in the workspace when the preloaded session contains rows.
 - In this flow, the browser app does not do receipt extraction itself.
 - In this flow, the skill does the scan first and the app acts only as the review/export surface.
@@ -36,9 +38,9 @@ Default behavior:
 
 3. Discover files and extract outside script:
 - Collect supported receipt files (`.jpg`, `.jpeg`, `.png`, `.webp`, `.heic`, `.heif`, `.pdf`) under the folder.
-- Extract receipt fields using the active host agent workflow (vision/PDF understanding).
+- Extract receipt fields using Codex agent workflow (vision/PDF understanding).
 - Build a structured JSON payload with receipt currency + amount from extraction (schema in [REFERENCE.md](REFERENCE.md), examples in [EXAMPLES.md](EXAMPLES.md)).
-- In review mode payloads, set `extraction_source` to the host-model scan flow for rows produced by the agent workflow.
+- In review mode payloads, set `extraction_source` to `codex` for rows produced by the Codex scan workflow.
 - In review mode payloads, set `extraction_label` to the active host agent label or model family that performed the scan, for example `Codex`, `Claude Code`, or `Gemini CLI`.
 - Do not include OCR-fallback wording in remarks unless OCR was actually used.
 
@@ -46,7 +48,7 @@ Default behavior:
 For review mode, wrap the payload into a preloaded session file first:
 
 ```bash
-python3 receipt-to-csv/scripts/payload_to_preloaded_session.py "<folder-path>" \
+python3 skills/receipt-to-csv/scripts/payload_to_preloaded_session.py "<folder-path>" \
   --payload-file "/tmp/receipt_payload.json" \
   --output-file "/tmp/receipt_preloaded_session.json"
 ```
@@ -54,16 +56,18 @@ python3 receipt-to-csv/scripts/payload_to_preloaded_session.py "<folder-path>" \
 Then launch the app with that session:
 
 ```bash
+bash skills/receipt-to-csv/scripts/check_prereqs.sh review
+
 RECEIPT_TO_CSV_SESSION_FILE="/tmp/receipt_preloaded_session.json" \
-bash receipt-to-csv/scripts/open_local_app.sh
+bash skills/receipt-to-csv/scripts/open_local_app.sh
 ```
 
 For CLI batch mode, run the bundled script:
 
 ```bash
-python3 receipt-to-csv/scripts/receipt_to_csv.py "<folder-path>" \
-  --payload-file "/tmp/receipt_payload.json" \
-  --home-currency "SGD"
+bash skills/receipt-to-csv/scripts/check_prereqs.sh cli
+
+python3 scripts/receipt_to_csv.py "<folder-path>" --payload-file "/tmp/receipt_payload.json" --home-currency "SGD"
 ```
 
 5. Verify output bundle for CLI mode:
@@ -96,5 +100,5 @@ python3 receipt-to-csv/scripts/receipt_to_csv.py "<folder-path>" \
 - Review mode should preload session data before the app renders, so the user lands on the workspace rather than an intermediate loading flow.
 - The browser app can preload a session from `RECEIPT_TO_CSV_SESSION_FILE` and show previews for the original receipt files.
 - The local app backend and any browser-side Gemini/Tesseract/OCR paths are not the intended extraction engine for review mode.
-- `receipt-to-csv/scripts/open_local_app.sh` expects access to a `ReceiptToCSV` project checkout containing `web-app/`. Run it from that project root or set `RECEIPT_TO_CSV_PROJECT_ROOT`.
+- `scripts/check_prereqs.sh` should fail early with clear install guidance when required runtime tools are missing.
 - DOCX attachment section embeds images directly and tries to render PDF pages as images for supporting proof.

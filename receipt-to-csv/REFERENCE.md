@@ -30,6 +30,8 @@ PDF page rendering backend order: `pymupdf` -> `pdftoppm` -> `qlmanage`.
 ## CLI Usage
 
 ```bash
+bash scripts/check_prereqs.sh cli
+
 python3 scripts/receipt_to_csv.py "<folder-path>" \
   --payload-file "/tmp/receipt_payload.json" \
   --home-currency SGD
@@ -90,6 +92,10 @@ Install dependencies before running:
 ```bash
 python3 -m pip install python-docx pillow requests pymupdf
 ```
+
+Runtime checks:
+- `bash scripts/check_prereqs.sh cli` validates required Python/runtime dependencies for CLI batch mode.
+- `bash scripts/check_prereqs.sh review` validates Node/npm and local app prerequisites for review mode.
 
 Notes:
 - `python-docx` is required.

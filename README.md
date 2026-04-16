@@ -69,6 +69,11 @@ Review payload rules:
 - keep `NEEDS_REVIEW` when extraction confidence is weak or FX conversion cannot be resolved cleanly
 - avoid OCR-fallback wording in remarks unless OCR was actually used
 
+Prerequisite checks:
+- run `bash receipt-to-csv/scripts/check_prereqs.sh review` before launching the local review app
+- run `bash receipt-to-csv/scripts/check_prereqs.sh cli` before running the formatter directly
+- the check fails early with install guidance when required tools such as `node`, `npm`, `python3`, or required Python packages are missing
+
 ## Important Dependency
 
 This repo packages the skill and helper scripts. The review UI itself lives in the main `ReceiptToCSV` project and expects access to its `web-app/` folder.

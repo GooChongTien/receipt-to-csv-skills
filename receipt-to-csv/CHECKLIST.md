@@ -2,7 +2,7 @@
 
 - [ ] Ask the user for the folder path to scan if not provided.
 - [ ] Confirm home currency (for example `SGD`) for reimbursement conversion.
-- [ ] Verify dependencies are installed (`python-docx`, `requests`; PDF rendering via `pymupdf` or `pdftoppm`/`qlmanage`; `pillow` recommended).
+- [ ] Run `scripts/check_prereqs.sh review` for review mode or `scripts/check_prereqs.sh cli` for CLI batch mode.
 - [ ] Scan supported files under the folder and extract fields outside the script.
 - [ ] Build a structured JSON payload (`rows` array with `source_path`, `receipt_currency`, `receipt_amount`, and extracted fields).
 - [ ] Run `scripts/receipt_to_csv.py` with `--payload-file` (or `--payload-json`) and `--home-currency`.
